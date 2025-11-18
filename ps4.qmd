@@ -1,11 +1,18 @@
 ---
 title: 'Psych 251 PS4: Simulation + Analysis'
-author: "Mike Frank"
+author: ""
 date: "2019"
 format: 
   html:
     toc: true
 ---
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+theme_set(theme_classic())
+library(lme4)
+```
 
 This is problem set #4, in which we want you to integrate your knowledge of data wrangling with some basic simulation skills. It's a short problem set to help consolidate your `ggplot2` skills and then help you get your feet wet in testing statistical concepts through "making up data" rather than consulting a textbook or doing math. 
 
@@ -24,20 +31,56 @@ fvs <- read_csv("data/FVS2011-hands.csv")
 First, use `ggplot` to plot a histogram of the ages of children in the study. NOTE: this is a repeated measures design, so you can't just take a histogram of every measurement. 
 
 ```{r}
+# keep one row per kid
+df_ages <- fvs %>% 
+        distinct(subid, .keep_all = TRUE)
+
+# histogram of ages
+ggplot(df_ages, aes(x = age)) +
+        geom_histogram(bins = 15)
 ```
 
 Second, make a scatter plot showing hand looking as a function of age and condition. Add appropriate smoothing lines. Take the time to fix the axis labels and make the plot look nice.
 
 ```{r}
+ggplot(fvs, aes(x = age, y = hand.look, color = condition)) +
+        geom_point(alpha = 0.4) +
+        geom_smooth(method = 'lm') +
+        labs(x = 'age (months)',
+             y = 'looking to hands (proportion)',
+             title = "infants' looking to hands in moving scenes") +
+        theme(axis.text.x=element_text(size = 14),
+              axis.text.y=element_text(size = 14),
+              axis.title.x=element_text(size = 16),
+              axis.title.y=element_text(size = 16),
+              plot.title=element_text(size = 20, hjust = 0.5),
+              legend.position='none') +
+        scale_x_continuous(breaks = seq(0, 30, by = 5)) +
+        geom_label(x=26, y=0.13, label="medium", color = '#D99304', size = 5) + 
+        geom_label(x=26, y=0.21, label="plus", color = '#434A9C', size = 5) +
+        scale_color_manual(values=c('#D99304', '#434A9C'))
 ```
 
 What do you conclude from this pattern of data?
 
-> ANSWER HERE
+> It appears that there is an interaction between age and whether infants watched the video with the more complex visual scene as opposed to the simpler one on the amount of time which they spent looking at hands.
 
 What statistical analyses would you perform here to quantify these differences?
 
-> ANSWER HERE
+> In order to test for this interaction effect, I would compare two mixed effects models predicting proportion of time looking at hands: one with condition, age, their interaction, and a random intercept for participant, and the other the same but without the interaction. See my analysis below (the age x condition interaction does appear to be a significant predicor):
+
+```{r}
+# more complex model
+fit.augmented <- lmer(hand.look ~ condition * age + (1 | subid), data = fvs)
+
+# null model
+fit.compact <- lmer(hand.look ~ condition + age + (1 | subid), data = fvs)
+
+# compare model fit
+anova(fit.augmented, fit.compact)
+```
+
+
 
 
 # Part 2: Simulation
@@ -55,16 +98,67 @@ What's the proportion of "significant" results ($p < .05$) that you see?
 First do this using a `for` loop.
 
 ```{r}
+# set seed
+set.seed(1)
+
+# number of tests to run
+num_reps = 10000
+
+# sample size
+sample_size = 30
+
+# initialize number of tests found to be significant
+significant = 0
+
+for (i in 1:num_reps) {
+        # randomly sample 30 points
+        sample <- rnorm(n = sample_size, mean = 0, sd = 1)
+        # run t-test
+        test <- t.test(sample, mu = 0, alternative = 'two.sided')
+        # check if significant results
+        if (test$p.val < .05) {
+                significant = significant + 1
+        }
+}
+
+# calculate false positive rate
+false_pos_rate = significant / num_reps
+print(paste('false positive rate:', false_pos_rate))
 ```
 
 Next, do this using the `replicate` function:
 
 ```{r}
+# set seed
+set.seed(1)
+
+# set number of replications
+num_replications = 10000
+
+# write function to simulate data and run tests
+simulate = function(sample_size, alpha, mean) {
+        sample <- rnorm(n = sample_size, mean = mean, sd = 1)
+        test <- t.test(sample, mu = 0, alternative = 'two.sided')
+        p_value <- test$p.val
+        if (p_value < alpha) {
+                return(1)
+        } else {
+                return(0)
+        }
+}
+
+# run simulation and tests
+positives <- replicate(n = num_replications,
+                    simulate(sample_size, 0.05, 0))
+
+# calculate false positive rate
+false_pos_rate = sum(positives) / num_replications
+print(paste('false positive rate:', false_pos_rate))
 ```
 
 How does this compare to the intended false-positive rate of $\alpha=0.05$?
 
-> ANSWER
+> This is very close to the intended false positive rate.
 
 Ok, that was a bit boring. Let's try something more interesting - let's implement a p-value sniffing simulation, in the style of Simons, Nelson, & Simonsohn (2011).
 
@@ -73,18 +167,37 @@ Consider this scenario: you have done an experiment, again with 30 participants 
 First, write a function that implements this sampling regime.
 
 ```{r}
-double.sample <- function() {
+# function to run optional stopping simulation
+double.sample <- function(sample_size, min_pval, max_pval) {
+        sample <- rnorm(n = sample_size, mean = mean, sd = 1)
+        test <- t.test(sample, mu = 0, alternative = 'two.sided')
+        p_value <- test$p.val
+        while (p_value < max_pval & p_value > min_pval) {
+                sample <- rnorm(n = sample_size, mean = mean, sd = 1)
+                test <- t.test(sample, mu = 0, alternative = 'two.sided')
+                p_value <- test$p.val
+        }
+        return(p_value)
 }
 ```
 
 Now call this function 10k times and find out what happens. 
 
 ```{r}
+# set seed
+set.seed(1)
+
+# run optional stopping simulation
+positives <- replicate(n = num_replications, simulate(sample_size, 0.05, 0.25))
+
+# calculate false positive rate
+false_pos_rate = sum(positives) / num_replications
+print(paste('false positive rate:', false_pos_rate))
 ```
 
 Is there an inflation of false positives? How bad is it?
 
-> ANSWER
+> There is a large inflation of false positives rates -- it is 5x the original rate!
 
 Now modify this code so that you can investigate this "double the sample" rule in a bit more depth. In the previous question, the researcher doubles the sample only when they think they got "close" to a significant result, i.e. when their not-significant p is less than 0.25. What if the researcher was more optimistic? See what happens in these 3 other scenarios:
 
@@ -99,8 +212,28 @@ HINT: Try to do this by making the function `double.sample` take the upper p val
 HINT 2: You may need more samples. Find out by looking at how the results change from run to run.
 
 ```{r}
+# Re-run for p-values: (0.05, 0.5)
+positives <- replicate(n = num_replications, simulate(sample_size, 0.05, 0.5))
+
+# calculate false positive rate
+false_pos_rate = sum(positives) / num_replications
+print(paste('false positive rate:', false_pos_rate))
+
+# Re-run for p-values: (0.05, 0.5)
+positives <- replicate(n = num_replications, simulate(sample_size, 0.05, 0.75))
+
+# calculate false positive rate
+false_pos_rate = sum(positives) / num_replications
+print(paste('false positive rate:', false_pos_rate))
+
+# Re-run for p-values: (0.05, 0.5)
+positives <- replicate(n = num_replications, simulate(sample_size, 0.05, 1))
+
+# calculate false positive rate
+false_pos_rate = sum(positives) / num_replications
+print(paste('false positive rate:', false_pos_rate))
 ```
 
 What do you conclude on the basis of this simulation? How bad is this kind of data-dependent policy?
 
-> ANSWER
+> As the researcher becomes more optimistic and increases the upper bound on their sample re-run criteria, the false positive rate converges to one. This is pretty bad! No matter the data, if we keep increasing our sample until the results are significant, we will eventually find what we're looking for...
