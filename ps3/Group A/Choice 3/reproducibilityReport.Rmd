@@ -49,8 +49,8 @@ library(haven) # import and export 'SPSS', 'Stata' and 'SAS' Files
 library(readxl) # import excel files
 
 # #optional packages:
-# library(afex) #anova functions
-# library(langcog) #95 percent confidence intervals
+library(afex) #anova functions
+#library(langcog) #95 percent confidence intervals
 ```
 
 # Step 2: Load data
@@ -86,7 +86,20 @@ d <- data %>%
 
 ```{r}
 # reproduce the above results here
+descriptive_stats <- d %>%
+        group_by(Slack, Large) %>% 
+        summarize(ci_bootstrapped = mean_cl_boot(expense, conf = 0.95),
+                  ci_normal = mean_cl_normal(expense, conf = 0.95)) %>% 
+        # pull out the mean, lower and upper bounds of CI
+        mutate(mean = ci_normal[1],
+               ci_normal_lower = ci_normal[2],
+               ci_normal_upper = ci_normal[3],
+               ci_bootstrapped_lower = ci_bootstrapped[2],
+               ci_bootstrapped_upper = ci_bootstrapped[3]) %>% 
+        # remove redundant columns
+        select(-c("ci_normal", "ci_bootstrapped"))
 
+kable(descriptive_stats)
 ```
 
 ## Inferential statistics
@@ -95,19 +108,22 @@ d <- data %>%
 
 ```{r}
 # reproduce the above results here
-
+aov_ez(id = "Subject",
+       dv = "expense",
+       between = c("Slack", "Large"),
+       data = d)
 ```
 
 # Step 5: Reflection
 
 Were you able to reproduce the results you attempted to reproduce? If not, what part(s) were you unable to reproduce?
 
-> ANSWER HERE
+> I generally was able to reproduce the results! The only thing I couldn't resolve were the CIs. I got the same mean values, but the margins of error were slightly off. I tried to find more info on these and how they were calculated but was unsuccessful. I tried a normal CI and a bootstrapped CI and neither matched exactly with what the paper said. Maybe this is just some kind of a rounding difference thing? 
 
 How difficult was it to reproduce your results? 
 
-> ANSWER HERE
+> It was generally not very difficult. Since reading in the data and preprocessing it was already taken care of, that spead things up a lot! Had I also tried to figure out dealing with the SPSS/Excel files, figuring out which participant was removed, or getting the data in tidy format, it would have taken more time.
 
 What aspects made it difficult? What aspects made it easy?
 
-> ANSWER HERE
+> One thing that made it difficult was that I wasn't immediately clear what the variables in the dataframe were because there was no codebook and the variable names weren't all the most intuitive. I also got confused by the random text and numbers on the right side of the dataframe -- it wasn't clear to me what these were until I opened the Excel file and saw that they had computed some summary statistics there in the dataframe. But as mentioned in my response to the question above, having the data already read in, preprocessed, and in tidy format made it a lot easier than it would have been otherwise.

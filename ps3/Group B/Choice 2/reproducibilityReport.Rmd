@@ -37,10 +37,11 @@ library(tidyverse) # for data munging
 library(knitr) # for kable table formating
 library(haven) # import and export 'SPSS', 'Stata' and 'SAS' Files
 library(readxl) # import excel files
+library(emmeans)
 
 # #optional packages:
 # library(psych)
-# library(car) # for ANCOVA
+library(car) # for ANCOVA
 # library(compute.es) # for ANCOVA
 # library(lsmeans) # for ANCOVA
 ```
@@ -56,7 +57,7 @@ d <-read_csv("data/S1_voice_level_Final.csv")
 ## Step 3: Tidy data
 
 ```{r}
-
+# Having a hard time tidying the data since I'm having difficulty understanding what the variables in the df are
 ```
 
 ## Step 4: Run analysis
@@ -64,7 +65,7 @@ d <-read_csv("data/S1_voice_level_Final.csv")
 ### Pre-processing
 
 ```{r}
-
+# Same as above -- hard to preprocess when I don't understand the structure of the df
 ```
 
 ### Descriptive statistics
@@ -72,7 +73,23 @@ d <-read_csv("data/S1_voice_level_Final.csv")
 In the paper, the adjusted means by condition are reported (see Table 4, or Table4_AdjustedMeans.png, included in the same folder as this Rmd file). Reproduce these values below:
 
 ```{r}
+# Pitch and pitch variability
+pitch <- lm(pitch_rmean ~ plev + pitch_smean, data = d)
+emmeans(pitch, ~ plev)
+pitch_variability <- lm(pitch_rvar ~ plev + pitch_svar, data = d)
+emmeans(pitch_variability, ~ plev)
 
+# Loudness and loudness variability
+loudness <- lm(intense_rmean ~ plev + intense_smean, data = d)
+emmeans(loudness, ~ plev)
+loudness_variability <- lm(intense_rvar ~ plev + intense_svar, data = d)
+emmeans(loudness_variability, ~ plev)
+
+# Resonance and resonance variability
+resonance <- lm(form_rmean ~ plev + form_smean, data = d)
+emmeans(resonance, ~ plev)
+resonance_variability <- lm(form_rvar ~ plev + form_svar, data = d)
+emmeans(resonance_variability, ~ plev)
 ```
 
 ### Inferential statistics
@@ -82,18 +99,35 @@ In the paper, the adjusted means by condition are reported (see Table 4, or Tabl
 ```{r}
 # reproduce the above results here
 
+# Pitch and pitch variability
+pitch_ancova <- aov(pitch_rmean ~ plev*vsex + pitch_smean, data = d)
+anova(pitch_ancova)
+pitch_variance_ancova <- aov(pitch_rvar ~ plev*vsex + pitch_svar, data = d)
+anova(pitch_variance_ancova)
+
+# Loudness and loudness variability
+intensity_ancova <- aov(intense_rmean ~ plev*vsex + intense_smean, data = d)
+anova(intensity_ancova)
+intensity_variance_ancova <- aov(intense_rvar ~ plev*vsex + intense_svar, data = d)
+anova(intensity_variance_ancova)
+
+# Resonance and resonance variability
+resonance_ancova <- aov(form_rmean ~ plev*vsex + form_smean, data = d)
+anova(resonance_ancova)
+resonance_variance_ancova <- aov(form_rvar ~ plev*vsex + form_svar, data = d)
+anova(resonance_variance_ancova)
 ```
 
 # Step 5: Reflection
 
 Were you able to reproduce the results you attempted to reproduce? If not, what part(s) were you unable to reproduce?
 
-> ANSWER HERE
+> I had a much harder time with reproducing these results than the one I chose for Group A. I got somewhat close to reproducing the descriptive statistics and was able to find some of the same things significant for the inferential statistics, but that was about it.
 
 How difficult was it to reproduce your results? 
 
-> ANSWER HERE
+> I had a hard time with this one -- I ran into the 3 hour time limit.
 
 What aspects made it difficult? What aspects made it easy?
 
-> ANSWER HERE
+> Without a codebook, I wasn't clear on what all the variables were. I didn't also understand all the details of their analysis. Like when they said that they "[controlled] for the baseline of the respective acoustic cue" I wasn't sure exactly what that meant. I didn't really know how to implement that in my analysis. Perhaps that's a common thing to do in this kind of research, and if I worked in this area it would be obvious. But for me, it wasn't.
